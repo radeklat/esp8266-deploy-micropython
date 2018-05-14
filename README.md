@@ -14,10 +14,15 @@ to use it on Linux as well. Pull requests are welcomed.
 ## Functions
 
 * Detects COM port where device is connected.
-* Removes all files from the device.
-* Puts back entire content of the _src_ folder.
-* Restarts device
+* Updates files on the device.
+* Restarts the device if any changes were made.
 
 ## Usage
 
 `bash deploy.sh`
+
+to clean all files and push the entire content of the _src_ folder.
+
+`bash deploy.sh -u`
+
+to not remove anything and push only files and folders changed since last run of the script.
