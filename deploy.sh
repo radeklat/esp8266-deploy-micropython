@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 
+ROOT_FOLDER="$( cd "$( dirname "$0" )" && pwd )"
 SRC_ROOT='src'
-PORTFILE='.portdiscovery'
+PORTFILE="${ROOT_FOLDER}/.portdiscovery"
+LASTUPDATED="${ROOT_FOLDER}/.lastupdated"
+NEWER_CONDITION="-cnewer ${LASTUPDATED}"
 
 detect_port() {
     for i in $(cat "${PORTFILE}" 2>/dev/null) $(seq 1 10); do
@@ -35,20 +38,47 @@ rmall() {
     done
 }
 
+while [[ "$#" > 0 ]]; do
+    case $1 in
+        -h|--help) show_help=true;;
+        -u|--update) option_update=true;;
+        *) test_exit 1 "Unknown option '$1'. Run program with -h or --help for help.";;
+    esac
+    shift
+done
+
+if [[ -n ${show_help+x} ]]; then
+    echo -e "ESP8266 Deploy MicroPython utility script.\n"
+    echo -e "Run as:\n  $0 [options]\n\nPossible options are:"
+    echo -e "  -h, --help: Displays this help.\n"
+    echo -e "  -u, --update: Do not remove anything from device and push only changed files and folders."
+    exit 255
+fi
+
 detect_port
 
 cd "${SRC_ROOT}"
 
-rmall
+if [[ ${option_update} != true ]]; then
+    rmall
+    NEWER_CONDITION=''
+fi
 
-echo "Copying files and directories:"
+if [[ ! -f "${LASTUPDATED}" ]]; then
+    NEWER_CONDITION=''
+fi
 
-for dirname in $(find . ! -path . -type d); do
+cnt=0
+
+for dirname in $(find . ! -path . -type d ${NEWER_CONDITION}); do
     ampycmd put "${dirname}"
+    cnt=$(expr ${cnt} + 1)
 done
 
-for filename in $(find . -type f); do
+for filename in $(find . -type f ${NEWER_CONDITION}); do
     ampycmd put "${filename}"
+    cnt=$(expr ${cnt} + 1)
 done
 
-ampycmd reset
+[[ ${cnt} -gt 0 ]] && ampycmd reset || echo 'No files were changed.'
+touch "${LASTUPDATED}"
