@@ -35,11 +35,30 @@ rmall() {
     done
 }
 
+while [[ "$#" > 0 ]]; do
+    case $1 in
+        -h|--help) show_help=true;;
+        -nr|--no-remove) no_remove=true;;
+        *) test_exit 1 "Unknown option '$1'. Run program with -h or --help for help.";;
+    esac
+    shift
+done
+
+if [[ -n ${show_help+x} ]]; then
+    echo -e "ESP8266 Deploy MicroPython utility script.\n"
+    echo -e "Run as:\n  $0 [options]\n\nPossible options are:"
+    echo -e "  -h, --help: Displays this help.\n"
+    echo -e "  -nr, --no-remove: File on device won't be removed before pushing new files."
+    exit 255
+fi
+
 detect_port
 
 cd "${SRC_ROOT}"
 
-rmall
+if [[ ${no_remove} != true ]]; then
+    rmall
+fi
 
 echo "Copying files and directories:"
 
