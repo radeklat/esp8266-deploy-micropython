@@ -1,20 +1,38 @@
 #!/usr/bin/env bash
 
-ROOT_FOLDER="$( cd "$( dirname "$0" )" && pwd )"
 SRC_ROOT='src'
+
+ROOT_FOLDER="$( cd "$( dirname "$0" )" && pwd )"
 PORTFILE="${ROOT_FOLDER}/.portdiscovery"
 LASTUPDATED="${ROOT_FOLDER}/.lastupdated"
 NEWER_CONDITION="-cnewer ${LASTUPDATED}"
+CURRENT_OS="$(uname -s)"
+AMPY_CMD='sudo ampy'
+PORT_BASE='/dev/ttyUSB'
+PORT_NUM_START=0
+
+if [[ "${CURRENT_OS}" =~ (CYGWIN|MINGW).* ]]; then
+    AMPY_CMD='ampy'
+    PORT_BASE='COM'
+    PORT_NUM_START=1
+elif [ $EUID != 0 ]; then
+    echo 'This script requires sudo to access serial ports.'
+    exit 1
+fi
 
 detect_port() {
-    for i in $(cat "${PORTFILE}" 2>/dev/null) $(seq 1 10); do
-        PORT="COM${i}"
-        ampy -p ${PORT} ls >/dev/null 2>&1
+    echo "Discovering connected serial devices:"
+    for i in $(cat "${PORTFILE}" 2>/dev/null) $(seq ${PORT_NUM_START} 10); do
+        PORT="${PORT_BASE}${i}"
+        echo -en "\t${PORT}: "
+        ${AMPY_CMD} -p ${PORT} ls >/dev/null 2>&1
 
         if [[ $? -eq 0 ]]; then
-            echo "Detected device on port ${PORT}."
+            echo "found"
             echo -n "${i}" >"${PORTFILE}"
             return 0
+        else
+            echo "not found"
         fi
     done
 
@@ -22,20 +40,42 @@ detect_port() {
     exit 1
 }
 
-ampycmd() {
-    echo -e "  $@"
-    ampy -p ${PORT} $@
+ampy_with_command_log() {
+    echo -e "\t$@"
+    ${AMPY_CMD} -p ${PORT} $@
 }
 
 rmall() {
     echo "Removing all files and folders:"
     for node in $(ampy -p ${PORT} ls); do
-        ampy -p ${PORT} rm "${node}" >/dev/null 2>&1
+        cmd='rm'
+        ${AMPY_CMD} -p ${PORT} rm "${node}" >/dev/null 2>&1
         if [[ $? -ne 0 ]]; then
-            ampy -p ${PORT} rmdir "${node}" >/dev/null 2>&1
+            cmd='rmdir'
+            ${AMPY_CMD} -p ${PORT} rmdir "${node}" >/dev/null 2>&1
         fi
-        echo "${node}"
+        echo -e "\t${cmd} ${node}"
     done
+}
+
+# $1 = additional time based filter condition for find
+push_all() {
+    local cnt=0
+    local time_condition=$1
+
+    echo "Pushing files:"
+
+    for dirname in $(find . ! -path . -type d ${time_condition}); do
+        ampy_with_command_log put "${dirname}"
+        cnt=$(expr ${cnt} + 1)
+    done
+
+    for filename in $(find . -type f ${time_condition}); do
+        ampy_with_command_log put "${filename}"
+        cnt=$(expr ${cnt} + 1)
+    done
+
+    [[ ${cnt} -gt 0 ]] && ampy_with_command_log reset || echo 'No files were changed.'
 }
 
 while [[ "$#" > 0 ]]; do
@@ -68,17 +108,6 @@ if [[ ! -f "${LASTUPDATED}" ]]; then
     NEWER_CONDITION=''
 fi
 
-cnt=0
+push_all "${NEWER_CONDITION}"
 
-for dirname in $(find . ! -path . -type d ${NEWER_CONDITION}); do
-    ampycmd put "${dirname}"
-    cnt=$(expr ${cnt} + 1)
-done
-
-for filename in $(find . -type f ${NEWER_CONDITION}); do
-    ampycmd put "${filename}"
-    cnt=$(expr ${cnt} + 1)
-done
-
-[[ ${cnt} -gt 0 ]] && ampycmd reset || echo 'No files were changed.'
 touch "${LASTUPDATED}"
