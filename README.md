@@ -16,7 +16,6 @@ Pull requests are welcomed.
 
 * Detects emulated serial port where device is connected.
 * Updates files on the device.
-* Restarts the device if any changes were made.
 
 ## Usage
 

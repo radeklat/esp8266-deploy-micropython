@@ -75,7 +75,7 @@ push_all() {
         cnt=$(expr ${cnt} + 1)
     done
 
-    [[ ${cnt} -gt 0 ]] && ampy_with_command_log reset || echo 'No files were changed.'
+    [[ ${cnt} -eq 0 ]] && echo 'No files were changed.'
 }
 
 while [[ "$#" > 0 ]]; do
