@@ -14,8 +14,10 @@ Pull requests are welcomed.
 
 ## Functions
 
-* Detects emulated serial port where device is connected.
-* Updates files on the device.
+1. Detects emulated serial port where device is connected.
+1. Deletes all files on the device and puts there all new ones. Or updates only changes files (use the `-u` or `--update` option)
+1. Opens console with the device (use the `-c` or `--console` option)
+1. Goes to _step 1_ when console closes (use the `-l` or `--loop` option)
 
 ## Usage
 
